@@ -3,121 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TopoPro Elite V5</title>
+    <title>TopoPro Elite V5.5</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:wght@400;600;800&display=swap');
         
         :root { --accent: #3b82f6; --bg: #020617; }
-        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; overflow: hidden; height: 100vh; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         
-        #map { height: 50vh; width: 100%; background: #0f172a; z-index: 1; }
+        #map { flex-grow: 1; width: 100%; background: #0f172a; z-index: 1; }
         
-        .glass { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+        .glass { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
         
-        /* Modal pequeño y elegante */
+        /* Notificación Toast en la parte superior para no tapar el footer */
+        #toast {
+            position: fixed; top: 20px; right: 20px;
+            z-index: 10000; padding: 12px 20px; border-radius: 12px; 
+            font-weight: 800; font-size: 11px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            transform: translateX(200%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        #toast.show { transform: translateX(0); }
+
+        /* Modal de carga elegante y pequeño */
         #msg-box { 
             display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            z-index: 9999; width: 280px; text-align: center; border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid var(--accent);
+            z-index: 9999; width: 280px; text-align: center; border-radius: 28px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); border: 1px solid rgba(59, 130, 246, 0.5);
         }
 
-        /* Notificación Toast */
-        #toast {
-            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(100px);
-            z-index: 10000; padding: 12px 24px; border-radius: 12px; font-weight: 700;
-            transition: transform 0.3s ease;
-        }
-        #toast.show { transform: translateX(-50%) translateY(0); }
-
-        .compass-btn { 
-            position: absolute; top: 15px; left: 15px; z-index: 1000; 
-            background: white; width: 42px; height: 42px; border-radius: 50%; 
-            display: flex; align-items: center; justify-content: center; border: 2px solid var(--accent);
-        }
-        .needle { 
-            width: 4px; height: 26px; background: linear-gradient(to bottom, #ef4444 50%, #1e293b 50%); 
-            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); 
-        }
-
-        .btn-action { transition: all 0.2s; border: 1px solid rgba(255,255,255,0.1); }
-        .btn-action:active { scale: 0.92; background: var(--accent); }
+        .btn-action { transition: all 0.2s; }
+        .btn-action:active { transform: scale(0.95); opacity: 0.8; }
+        
+        .status-bar { border-top: 1px solid rgba(255,255,255,0.05); }
     </style>
 </head>
 <body>
 
-    <!-- Toast Personalizado (Reemplaza al alert feo) -->
-    <div id="toast" class="glass text-emerald-400 text-xs uppercase tracking-widest border-emerald-500/30">
-        ✅ Coordenadas Copiadas
+    <!-- Notificación (Ahora arriba para no estorbar) -->
+    <div id="toast" class="glass text-emerald-400 border-emerald-500/30 flex items-center gap-2">
+        <span class="bg-emerald-500/20 p-1 rounded">✓</span> COORDENADAS COPIADAS
     </div>
 
-    <!-- Modal de Carga Mejorado -->
-    <div id="msg-box" class="glass p-6">
-        <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <h3 class="text-white font-800 text-sm uppercase mb-1">Sincronizando GNSS</h3>
-        <p class="text-[10px] text-slate-400 mb-4">Buscando señal de alta precisión (±30m máx)...</p>
-        <button onclick="requestGPS()" class="bg-blue-600 text-[10px] font-black w-full py-3 rounded-xl uppercase">Forzar Inicio</button>
+    <!-- Modal de Inicio -->
+    <div id="msg-box" class="glass p-8">
+        <div class="relative w-16 h-16 mx-auto mb-6">
+            <div class="absolute inset-0 border-4 border-blue-500/20 rounded-full"></div>
+            <div class="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+        <h3 class="text-white font-800 text-sm uppercase tracking-widest mb-2">Sincronizando GNSS</h3>
+        <p class="text-[10px] text-slate-400 mb-6 leading-relaxed">Estableciendo conexión con constelación de satélites para máxima precisión...</p>
+        <button onclick="requestGPS()" class="bg-blue-600 text-[10px] font-black w-full py-4 rounded-2xl uppercase tracking-tighter btn-action">Forzar Inicio</button>
     </div>
 
-    <!-- Cabecera -->
-    <div class="p-4 flex justify-between items-center bg-slate-950 border-b border-white/5">
+    <!-- Header -->
+    <div class="p-4 flex justify-between items-center bg-slate-950/80 backdrop-blur-md">
         <div>
-            <h1 class="text-lg font-800 tracking-tighter italic text-white uppercase">TopoPro <span class="text-blue-500">Elite</span></h1>
-            <p class="text-[7px] font-bold text-slate-500 uppercase tracking-[0.2em]">Geodesia Profesional v5.0</p>
+            <h1 class="text-lg font-900 tracking-tighter italic text-white uppercase leading-none">TopoPro <span class="text-blue-500">Elite</span></h1>
+            <p class="text-[7px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">Geodesia Profesional V5.5</p>
         </div>
-        <div class="flex bg-slate-900 p-1 rounded-xl">
-            <button onclick="setSystem('CTM12')" id="b-ctm" class="px-4 py-2 rounded-lg text-[9px] font-black bg-blue-600 text-white">CTM12</button>
-            <button onclick="setSystem('MAGNA')" id="b-bog" class="px-4 py-2 rounded-lg text-[9px] font-black text-slate-500 ml-1 uppercase">Magna</button>
+        <div class="flex bg-slate-900 p-1 rounded-xl border border-white/5">
+            <button onclick="setSystem('CTM12')" id="b-ctm" class="px-3 py-2 rounded-lg text-[9px] font-black bg-blue-600 text-white transition-all">CTM12</button>
+            <button onclick="setSystem('MAGNA')" id="b-bog" class="px-3 py-2 rounded-lg text-[9px] font-black text-slate-500 ml-1 transition-all uppercase">Magna</button>
         </div>
     </div>
 
-    <!-- Panel de Coordenadas Puras -->
-    <div class="p-4 grid grid-cols-2 gap-3">
-        <div class="glass p-4 rounded-2xl border-l-4 border-blue-500">
-            <p class="text-[8px] font-black text-blue-400 uppercase mb-1 opacity-70 text-right">Norte</p>
+    <!-- Coordenadas -->
+    <div class="p-4 grid grid-cols-2 gap-3 bg-slate-950/50">
+        <div class="glass p-4 rounded-2xl border-b-2 border-blue-500/50">
+            <p class="text-[8px] font-black text-blue-400 uppercase mb-1 opacity-60">Norte (N)</p>
             <p id="t-n" class="text-lg font-mono font-bold text-white tracking-tighter">Buscando...</p>
         </div>
-        <div class="glass p-4 rounded-2xl border-l-4 border-blue-500">
-            <p class="text-[8px] font-black text-blue-400 uppercase mb-1 opacity-70 text-right">Este</p>
-            <p id="t-e" class="text-lg font-mono font-bold text-white tracking-tighter">Buscando...</p>
+        <div class="glass p-4 rounded-2xl border-b-2 border-blue-500/50">
+            <p class="text-[8px] font-black text-blue-400 uppercase mb-1 opacity-60 text-right">Este (E)</p>
+            <p id="t-e" class="text-lg font-mono font-bold text-white tracking-tighter text-right">Buscando...</p>
         </div>
-        <div class="glass p-4 rounded-2xl flex justify-between items-center col-span-2 border-l-4 border-emerald-500">
+        <div class="glass p-4 rounded-2xl flex justify-between items-center col-span-2 border-b-2 border-emerald-500/50">
             <div>
-                <p class="text-[8px] font-black text-emerald-400 uppercase mb-1 opacity-70">Elevación MSNM</p>
+                <p class="text-[8px] font-black text-emerald-400 uppercase mb-1 opacity-60">Elevación MSNM</p>
                 <p id="t-h" class="text-xl font-mono font-bold text-white">---.--- m</p>
             </div>
-            <button onclick="copyData()" class="btn-action bg-slate-800 p-3 rounded-xl">
-                <svg width="20" height="20" fill="none" stroke="#3b82f6" stroke-width="2.5" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+            <button onclick="copyData()" class="btn-action bg-blue-600/10 hover:bg-blue-600 p-3 rounded-xl border border-blue-500/30">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
             </button>
         </div>
     </div>
 
     <!-- Mapa -->
-    <div class="relative flex-grow">
-        <div id="map"></div>
-        <div class="compass-btn" onclick="resetMap()">
-            <div id="needle" class="needle"></div>
+    <div id="map"></div>
+
+    <!-- Panel de Estado (Footer) -->
+    <div class="glass m-3 p-4 rounded-2xl status-bar relative z-50">
+        <div class="flex justify-between items-center mb-2">
+            <div class="flex items-center">
+                <div id="gps-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 mr-2 shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+                <span id="gps-text" class="text-[10px] font-black text-slate-300 uppercase tracking-tighter">Esperando Señal...</span>
+            </div>
+            <span id="t-prec" class="text-[10px] font-mono font-bold text-red-500">± --- m</span>
         </div>
-        <button onclick="requestGPS()" class="absolute bottom-6 right-6 z-[1000] bg-blue-600 text-white p-4 rounded-2xl shadow-2xl border-2 border-white/20 btn-action">
-            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-        </button>
+        <p id="t-status" class="text-[9px] text-slate-500 font-medium uppercase tracking-widest animate-pulse">Buscando constelación satelital...</p>
     </div>
 
-    <!-- Footer de Estado -->
-    <div class="glass m-4 p-4 rounded-2xl">
-        <div class="flex justify-between items-center mb-1">
-            <div class="flex items-center">
-                <div id="gps-dot" class="w-2 h-2 rounded-full bg-red-500 mr-2"></div>
-                <span id="gps-text" class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">GPS: Iniciando...</span>
-            </div>
-            <span id="t-prec" class="text-[9px] font-mono font-bold text-red-500 italic">± -- m</span>
-        </div>
-        <p id="t-sitio" class="text-[10px] text-slate-400 truncate font-medium">Sincronizando con estación base geodésica...</p>
-    </div>
+    <!-- Botón Flotante Localizar -->
+    <button onclick="requestGPS()" class="fixed bottom-32 right-6 z-[1000] bg-blue-600 text-white p-4 rounded-2xl shadow-2xl border border-white/20 btn-action">
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+    </button>
 
     <script>
         const PROJ = {
@@ -125,9 +118,10 @@
             MAGNA: { a: 6378137.0, f: 1/298.257222101, lat0: 4.596200417, lon0: -74.077507917, N0: 1000000.0, E0: 1000000.0, k0: 1.0 }
         };
 
-        let sys = 'CTM12', wId = null, lastLat = null, lastLon = null;
+        let sys = 'CTM12', wId = null, lastLat = null, lastLon = null, lastAcc = 999;
         let isFirstFix = true;
 
+        // Proyección Geodésica
         function forwardGK(lat, lon) {
             const p = PROJ[sys];
             const rad = Math.PI / 180;
@@ -140,12 +134,11 @@
             const M0 = p.a * ((1 - e2/4 - 3*e2**2/64) * phi0 - (3*e2/8 + 3*e2**2/32) * Math.sin(2*phi0) + (15*e2**2/256) * Math.sin(4*phi0));
             const norte = p.N0 + p.k0 * (M - M0 + n * Math.tan(phi) * (a**2/2 + (5 - t + 9*c + 4*c**2) * a**4/24));
             const este = p.E0 + p.k0 * n * (a + (1 - t + c) * a**3/6 + (5 - 18*t + t**2 + 72*c) * a**5/120);
-            return { n: norte.toFixed(3), e: este.toFixed(3) };
+            return { n: norte.toFixed(3).replace('.',','), e: este.toFixed(3).replace('.',',') };
         }
 
         const map = L.map('map', { 
-            center: [4.57, -74.29], zoom: 17, zoomControl: false, 
-            rotate: true, touchRotate: true,
+            center: [4.57, -74.29], zoom: 16, zoomControl: false,
             layers: [
                 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
                 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png')
@@ -153,84 +146,102 @@
         });
 
         let marker = null;
+        let accuracyCircle = null;
 
-        function updateData(la, lo, acc = 0) {
-            // Filtro de Calidad: Si la precisión es peor a 40m y no es el primer fix, ignorar.
-            if(acc > 40 && !isFirstFix) return;
+        function updateUI(la, lo, acc) {
+            // Filtro de calidad: Si ya tenemos una buena lectura, ignorar lecturas basura (>50m)
+            if (!isFirstFix && acc > 50 && lastAcc < 20) {
+                console.log("Lectura ignorada por baja precisión:", acc);
+                return;
+            }
 
-            lastLat = la; lastLon = lo;
+            lastLat = la; lastLon = lo; lastAcc = acc;
             const c = forwardGK(la, lo);
+            
+            // Actualización de texto
             document.getElementById('t-n').innerText = c.n;
             document.getElementById('t-e').innerText = c.e;
-            
             document.getElementById('t-prec').innerText = `± ${acc.toFixed(1)} m`;
+
             const dot = document.getElementById('gps-dot');
             const txt = document.getElementById('gps-text');
+            const status = document.getElementById('t-status');
 
-            if(acc < 15) {
-                dot.className = "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]";
+            if (acc <= 15) {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_#10b981]";
                 txt.innerText = "GPS: ALTA PRECISIÓN";
-                document.getElementById('t-prec').className = "text-[9px] font-mono font-bold text-emerald-400";
+                status.innerText = "Sincronización estable con GNSS";
+                status.classList.remove('animate-pulse');
+                document.getElementById('t-prec').className = "text-[10px] font-mono font-bold text-emerald-400";
             } else {
-                dot.className = "w-2 h-2 rounded-full bg-amber-500 animate-pulse";
+                dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shadow-[0_0_12px_#f59e0b]";
                 txt.innerText = "GPS: OPTIMIZANDO...";
-                document.getElementById('t-prec').className = "text-[9px] font-mono font-bold text-amber-400";
+                status.innerText = "Buscando mejor señal de satélite...";
+                document.getElementById('t-prec').className = "text-[10px] font-mono font-bold text-amber-400";
             }
-            
-            if(marker) map.removeLayer(marker);
-            marker = L.circleMarker([la, lo], { radius: 8, color: 'white', weight: 3, fillColor: '#3b82f6', fillOpacity: 1 }).addTo(map);
-            
-            // Auto-vuelo en el primer fix
-            if(isFirstFix) {
-                map.flyTo([la, lo], 18, { duration: 1.5 });
+
+            // Actualización de Mapa
+            if (marker) map.removeLayer(marker);
+            if (accuracyCircle) map.removeLayer(accuracyCircle);
+
+            accuracyCircle = L.circle([la, lo], { radius: acc, color: '#3b82f6', weight: 1, fillOpacity: 0.1 }).addTo(map);
+            marker = L.circleMarker([la, lo], { radius: 9, color: 'white', weight: 3, fillColor: '#3b82f6', fillOpacity: 1 }).addTo(map);
+
+            if (isFirstFix) {
+                map.flyTo([la, lo], 18, { duration: 2 });
                 isFirstFix = false;
                 document.getElementById('msg-box').style.display = "none";
             }
 
+            // Consultar Altitud
             fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${la},${lo}`)
-                .then(r => r.json()).then(d => { if(d.results[0]) document.getElementById('t-h').innerText = d.results[0].elevation.toFixed(3) + " m"; });
+                .then(r => r.json()).then(d => { 
+                    if(d.results[0]) document.getElementById('t-h').innerText = d.results[0].elevation.toFixed(3) + " m"; 
+                }).catch(() => {});
         }
 
         function requestGPS() {
-            if(wId) navigator.geolocation.clearWatch(wId);
+            isFirstFix = true;
             document.getElementById('msg-box').style.display = "block";
-            isFirstFix = true; // Reiniciar para que vuelva a volar al punto
+            
+            if (wId) navigator.geolocation.clearWatch(wId);
 
             wId = navigator.geolocation.watchPosition(
-                (p) => updateData(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
-                (err) => { document.getElementById('gps-text').innerText = "ERROR GPS"; },
-                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                (p) => updateUI(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
+                (err) => { 
+                    document.getElementById('gps-text').innerText = "ERROR DE SEÑAL";
+                    document.getElementById('t-status').innerText = "Verifica los permisos de ubicación";
+                },
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
             );
         }
 
         function setSystem(val) {
             sys = val;
-            document.getElementById('b-ctm').className = val === 'CTM12' ? 'px-4 py-2 rounded-lg text-[9px] font-black bg-blue-600 text-white' : 'px-4 py-2 rounded-lg text-[9px] font-black text-slate-500 ml-1';
-            document.getElementById('b-bog').className = val === 'MAGNA' ? 'px-4 py-2 rounded-lg text-[9px] font-black bg-blue-600 text-white' : 'px-4 py-2 rounded-lg text-[9px] font-black text-slate-500 ml-1';
-            if(lastLat) updateData(lastLat, lastLon);
+            document.getElementById('b-ctm').className = val === 'CTM12' ? 'px-3 py-2 rounded-lg text-[9px] font-black bg-blue-600 text-white' : 'px-3 py-2 rounded-lg text-[9px] font-black text-slate-500 ml-1';
+            document.getElementById('b-bog').className = val === 'MAGNA' ? 'px-3 py-2 rounded-lg text-[9px] font-black bg-blue-600 text-white' : 'px-3 py-2 rounded-lg text-[9px] font-black text-slate-500 ml-1';
+            if (lastLat) updateUI(lastLat, lastLon, lastAcc);
         }
 
         function copyData() {
-            const text = `N: ${document.getElementById('t-n').innerText}\nE: ${document.getElementById('t-e').innerText}\nH: ${document.getElementById('t-h').innerText}`;
+            const text = `SISTEMA: ${sys}\nNORTE: ${document.getElementById('t-n').innerText}\nESTE: ${document.getElementById('t-e').innerText}\nALTURA: ${document.getElementById('t-h').innerText}\nPRECISIÓN: ${document.getElementById('t-prec').innerText}`;
+            
             const el = document.createElement('textarea');
-            el.value = text; document.body.appendChild(el); el.select();
-            document.execCommand('copy'); document.body.removeChild(el);
+            el.value = text;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
             
             const toast = document.getElementById('toast');
             toast.classList.add('show');
-            setTimeout(() => toast.classList.remove('show'), 2000);
+            setTimeout(() => toast.classList.remove('show'), 3000);
         }
 
-        function resetMap() {
-            map.setBearing(0);
-            if(lastLat) map.panTo([lastLat, lastLon]);
-        }
-
-        map.on('rotate', () => {
-            document.getElementById('needle').style.transform = `rotate(${-map.getBearing()}deg)`;
-        });
-
-        window.onload = () => setTimeout(requestGPS, 800);
+        // Iniciar al cargar
+        window.onload = () => {
+            setTimeout(requestGPS, 1000);
+        };
     </script>
 </body>
 </html>
