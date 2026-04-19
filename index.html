@@ -6,64 +6,36 @@
     <title>TopoPro Elite - Colombia</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Plugin para rotación de mapa -->
     <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; margin: 0; overflow: hidden; }
+        body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; margin: 0; overflow: hidden; height: 100vh; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
-        
-        #map { height: 45vh; width: 100%; z-index: 1; touch-action: none; }
-        
-        .glass-panel { 
-            background: rgba(30, 41, 59, 0.7); 
-            backdrop-filter: blur(12px); 
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        
+        #map { height: 45vh; width: 100%; z-index: 1; touch-action: none; background: #1e293b; }
+        .glass-panel { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
         .coord-box { border-left: 4px solid #3b82f6; background: rgba(15, 23, 42, 0.5); }
-        
-        .compass-container {
-            position: absolute; top: 20px; left: 20px; z-index: 1000;
-            background: white; width: 55px; height: 55px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4); border: 2px solid #3b82f6;
-        }
-        .needle {
-            width: 8px; height: 35px;
-            background: linear-gradient(to bottom, #ef4444 50%, #1e293b 50%);
-            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-            transition: transform 0.3s ease-out;
-        }
-        
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .online { background: #10b981; box-shadow: 0 0 10px #10b981; }
-        
-        .location-footer {
-            position: fixed; bottom: 0; left: 0; right: 0;
-            padding: 15px; border-top-left-radius: 25px; border-top-right-radius: 25px;
-            z-index: 2000;
-        }
-
-        .leaflet-control-layers {
-            background: rgba(255, 255, 255, 0.9) !important;
-            border-radius: 15px !important;
-            border: none !important;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3) !important;
-            color: #1e293b !important;
-            font-weight: bold !important;
-            font-size: 11px !important;
-        }
+        .compass-container { position: absolute; top: 20px; left: 20px; z-index: 1000; background: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 2px solid #3b82f6; }
+        .needle { width: 6px; height: 30px; background: linear-gradient(to bottom, #ef4444 50%, #1e293b 50%); clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); transition: transform 0.2s ease-out; }
+        .location-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 15px; border-top-left-radius: 25px; border-top-right-radius: 25px; z-index: 2000; }
+        .leaflet-control-layers { background: white !important; border-radius: 12px !important; color: black !important; font-weight: bold !important; }
+        #msg-box { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; width: 80%; text-align: center; }
     </style>
 </head>
 <body>
 
+    <!-- Mensaje de error/instrucciones -->
+    <div id="msg-box" class="glass-panel p-6 rounded-3xl border-2 border-blue-500 shadow-2xl">
+        <h3 class="text-blue-400 font-black mb-2">GPS REQUERIDO</h3>
+        <p id="msg-text" class="text-xs text-slate-300 mb-4">Por favor, activa la ubicación y acepta los permisos del navegador.</p>
+        <button onclick="requestGPS()" class="bg-blue-600 px-6 py-3 rounded-xl font-bold text-xs uppercase">Reintentar</button>
+    </div>
+
     <!-- Header -->
-    <div class="p-4 flex justify-between items-center">
+    <div class="p-4 flex justify-between items-center bg-slate-900">
         <div>
-            <h1 class="text-xl font-900 tracking-tighter italic text-white">TopoPro <span class="text-blue-500">ELITE</span></h1>
-            <p class="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em]">Magna-Sirgas / CTM12</p>
+            <h1 class="text-xl font-900 tracking-tighter italic text-white leading-none">TopoPro <span class="text-blue-500">ELITE</span></h1>
+            <p class="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Magna-Sirgas / CTM12</p>
         </div>
         <div class="flex bg-slate-800 p-1 rounded-xl">
             <button onclick="setSystem('CTM12')" id="b-ctm" class="px-3 py-2 rounded-lg text-[10px] font-black bg-blue-600 text-white transition-all">CTM12</button>
@@ -72,45 +44,45 @@
     </div>
 
     <!-- Coordenadas Principal -->
-    <div class="px-4 grid grid-cols-2 gap-3 mb-4">
+    <div class="px-4 grid grid-cols-2 gap-3 my-4">
         <div class="glass-panel p-4 rounded-2xl coord-box">
             <p class="text-[9px] font-bold text-blue-400 uppercase mb-1">Norte (N)</p>
-            <p id="t-n" class="text-lg font-mono tracking-tighter text-white">Buscando...</p>
+            <p id="t-n" class="text-base font-mono tracking-tighter text-white">Buscando...</p>
         </div>
         <div class="glass-panel p-4 rounded-2xl coord-box">
             <p class="text-[9px] font-bold text-blue-400 uppercase mb-1">Este (E)</p>
-            <p id="t-e" class="text-lg font-mono tracking-tighter text-white">Buscando...</p>
+            <p id="t-e" class="text-base font-mono tracking-tighter text-white">Buscando...</p>
         </div>
-        <div class="glass-panel p-4 rounded-2xl col-span-2 flex justify-between items-center border-l-4 border-emerald-500">
+        <div class="glass-panel p-4 rounded-2xl col-span-2 flex justify-between items-center border-l-4 border-emerald-500 py-3">
             <div>
                 <p class="text-[9px] font-bold text-emerald-400 uppercase">Altura (MSNM)</p>
-                <p id="t-h" class="text-2xl font-mono text-white">--- m</p>
+                <p id="t-h" class="text-xl font-mono text-white">--- m</p>
             </div>
-            <button onclick="copyData()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-black text-xs transition-all active:scale-90">COPIAR</button>
+            <button onclick="copyData()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] active:scale-90 transition-all">COPIAR</button>
         </div>
     </div>
 
     <!-- Mapa -->
-    <div class="relative">
+    <div class="relative border-t border-slate-700">
         <div id="map"></div>
         <div class="compass-container">
             <div id="needle" class="needle"></div>
         </div>
-        <button id="btn-gps" onclick="toggleGPS()" class="absolute bottom-6 right-6 z-[1000] bg-blue-600 text-white p-5 rounded-full shadow-2xl border-4 border-slate-900 active:scale-95 transition-all">
+        <button onclick="requestGPS()" class="absolute bottom-6 right-6 z-[1000] bg-blue-600 text-white p-5 rounded-full shadow-2xl border-4 border-slate-900 active:scale-95 transition-all">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         </button>
     </div>
 
-    <!-- Info Sitio Inferior -->
-    <div class="location-footer glass-panel">
+    <!-- Footer Ubicación -->
+    <div class="location-footer glass-panel shadow-[0_-10px_25px_rgba(0,0,0,0.5)]">
         <div class="flex items-center mb-1">
-            <span class="status-dot online"></span>
-            <span class="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Ubicación Actual</span>
+            <div id="gps-dot" class="w-2 h-2 rounded-full bg-red-500 animate-pulse mr-2"></div>
+            <span class="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Señal GPS</span>
         </div>
-        <p id="t-sitio" class="text-sm font-bold text-white truncate">Obteniendo dirección...</p>
-        <div class="flex justify-between mt-2 text-[10px] text-slate-400 font-mono">
-            <span id="t-prec">Precisión: ± 0.0m</span>
-            <span id="t-last">GPS: Activo</span>
+        <p id="t-sitio" class="text-xs font-bold text-white truncate mb-1">Esperando señal de satélite...</p>
+        <div class="flex justify-between text-[9px] text-slate-400 font-mono">
+            <span id="t-prec">Precisión: ---</span>
+            <span id="t-status">Estado: Iniciando...</span>
         </div>
     </div>
 
@@ -121,25 +93,25 @@
         };
 
         let sys = 'CTM12'; 
-        let wId = null; 
-        let lat = 4.57, lon = -74.3;
+        let wId = null;
+        let lastLat = null, lastLon = null;
 
+        // Configuración de Capas
         const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
-        const labels = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}{r}.png', {opacity: 0.8});
+        const labels = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png');
         const hybrid = L.layerGroup([sat, labels]);
         const streets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
-        const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png');
 
         const map = L.map('map', {
-            center: [lat, lon],
-            zoom: 16,
+            center: [4.5708, -74.2973], // Punto inicial Soacha por defecto
+            zoom: 15,
             zoomControl: false,
             layers: [hybrid],
-            rotate: true, 
-            touchRotate: true 
+            rotate: true,
+            touchRotate: true
         });
 
-        const baseMaps = { "Satelital": hybrid, "Calles": streets, "Relieve": topo };
+        const baseMaps = { "Satelital": hybrid, "Calles": streets };
         L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 
         let marker = null;
@@ -148,7 +120,7 @@
             sys = val;
             document.getElementById('b-ctm').className = val === 'CTM12' ? 'px-3 py-2 rounded-lg text-[10px] font-black bg-blue-600 text-white' : 'px-3 py-2 rounded-lg text-[10px] font-black text-slate-500 ml-1';
             document.getElementById('b-bog').className = val === 'BOGOTA' ? 'px-3 py-2 rounded-lg text-[10px] font-black bg-blue-600 text-white' : 'px-3 py-2 rounded-lg text-[10px] font-black text-slate-500 ml-1';
-            updateData(lat, lon);
+            if(lastLat) updateData(lastLat, lastLon);
         }
 
         function project(la, lo) {
@@ -170,38 +142,51 @@
             try {
                 const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${la}&lon=${lo}&format=json`);
                 const d = await r.json();
-                const addr = d.address;
-                const loc = `${addr.suburb || addr.neighbourhood || addr.village || addr.road || 'Sector Rural'}, ${addr.city || addr.town || addr.municipality || ''}, ${addr.state || ''}`;
-                document.getElementById('t-sitio').innerText = loc;
+                document.getElementById('t-sitio').innerText = d.display_name.split(',').slice(0,3).join(',');
             } catch(e) {
-                document.getElementById('t-sitio').innerText = "Sector Rural Colombia";
+                document.getElementById('t-sitio').innerText = "Coordenadas Manuales";
             }
         }
 
         function updateData(la, lo, acc = 0) {
-            lat = la; lon = lo;
+            lastLat = la; lastLon = lo;
             const c = project(la, lo);
-            document.getElementById('t-n').innerText = c.n.toLocaleString('es-CO', {minimumFractionDigits:3, useGrouping:false});
-            document.getElementById('t-e').innerText = c.e.toLocaleString('es-CO', {minimumFractionDigits:3, useGrouping:false});
+            document.getElementById('t-n').innerText = c.n.toFixed(3);
+            document.getElementById('t-e').innerText = c.e.toFixed(3);
             if(acc > 0) document.getElementById('t-prec').innerText = `Precisión: ± ${acc.toFixed(1)}m`;
+            
             getElevation(la, lo);
             getReverseGeocode(la, lo);
+
             if(marker) map.removeLayer(marker);
-            marker = L.circleMarker([la, lo], { radius: 10, color: 'white', weight: 4, fillColor: '#3b82f6', fillOpacity: 1 }).addTo(map);
+            marker = L.circleMarker([la, lo], { radius: 8, color: 'white', weight: 3, fillColor: '#3b82f6', fillOpacity: 1 }).addTo(map);
+            
+            document.getElementById('gps-dot').className = "w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]";
+            document.getElementById('t-status').innerText = "Estado: Conectado";
+            document.getElementById('msg-box').style.display = "none";
         }
 
-        function toggleGPS() {
-            if(wId) {
-                navigator.geolocation.clearWatch(wId);
-                wId = null;
-                document.getElementById('t-last').innerText = "GPS: Pausado";
-                return;
-            }
-            wId = navigator.geolocation.watchPosition((p) => {
-                updateData(p.coords.latitude, p.coords.longitude, p.coords.accuracy);
-                map.flyTo([p.coords.latitude, p.coords.longitude], 18);
-            }, null, { enableHighAccuracy: true });
-            document.getElementById('t-last').innerText = "GPS: Activo";
+        function requestGPS() {
+            if(wId) navigator.geolocation.clearWatch(wId);
+            
+            document.getElementById('t-status').innerText = "Estado: Buscando...";
+            
+            wId = navigator.geolocation.watchPosition(
+                (p) => {
+                    updateData(p.coords.latitude, p.coords.longitude, p.coords.accuracy);
+                    map.flyTo([p.coords.latitude, p.coords.longitude], 18);
+                },
+                (err) => {
+                    document.getElementById('msg-box').style.display = "block";
+                    let msg = "Error desconocido";
+                    if(err.code == 1) msg = "Permiso denegado. Activa la ubicación en el navegador.";
+                    if(err.code == 2) msg = "GPS no disponible. Activa la ubicación en ajustes del celular.";
+                    if(err.code == 3) msg = "Tiempo de espera agotado. Reintenta.";
+                    document.getElementById('msg-text').innerText = msg;
+                    document.getElementById('gps-dot').className = "w-2 h-2 rounded-full bg-red-500 animate-pulse mr-2";
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
         }
 
         map.on('rotate', () => {
@@ -214,11 +199,19 @@
             const el = document.createElement('textarea');
             el.value = text; document.body.appendChild(el); el.select();
             document.execCommand('copy'); document.body.removeChild(el);
-            alert("📋 Coordenadas copiadas");
+            alert("📋 Coordenadas copiadas al portapapeles");
         }
 
-        window.onload = () => { toggleGPS(); };
-        map.on('click', (e) => updateData(e.latlng.lat, e.latlng.lng));
+        // Forzar inicio al cargar
+        window.onload = () => {
+            requestGPS();
+        };
+
+        // Al hacer click en el mapa, actualizar coordenadas manualmente
+        map.on('click', (e) => {
+            updateData(e.latlng.lat, e.latlng.lng);
+            document.getElementById('t-status').innerText = "Estado: Punto Manual";
+        });
     </script>
 </body>
 </html>
