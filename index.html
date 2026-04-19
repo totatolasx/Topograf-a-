@@ -1,216 +1,202 @@
-<!DOCTYPE html>
+<DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TopoPro Elite - Colombia</title>
+    <title>TopoPro Elite V4.1</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; background: #0f172a; color: white; margin: 0; overflow: hidden; height: 100vh; }
+        body { font-family: 'Inter', sans-serif; background: #020617; color: white; margin: 0; overflow: hidden; height: 100vh; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
-        #map { height: 45vh; width: 100%; z-index: 1; touch-action: none; background: #1e293b; }
-        .glass-panel { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
-        .coord-box { border-left: 4px solid #3b82f6; background: rgba(15, 23, 42, 0.5); }
-        .compass-container { position: absolute; top: 20px; left: 20px; z-index: 1000; background: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 2px solid #3b82f6; }
-        .needle { width: 6px; height: 30px; background: linear-gradient(to bottom, #ef4444 50%, #1e293b 50%); clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); transition: transform 0.2s ease-out; }
-        .location-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 15px; border-top-left-radius: 25px; border-top-right-radius: 25px; z-index: 2000; }
+        #map { height: 45vh; width: 100%; z-index: 1; touch-action: none; background: #0f172a; }
+        .glass-panel { background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); }
+        .coord-box { border-left: 4px solid #3b82f6; }
+        .compass-container { position: absolute; top: 20px; left: 20px; z-index: 1000; background: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 2px solid #3b82f6; }
+        .needle { width: 6px; height: 30px; background: linear-gradient(to bottom, #ef4444 50%, #1e293b 50%); clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); transition: transform 0.1s linear; }
+        .location-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 18px; border-top-left-radius: 28px; border-top-right-radius: 28px; z-index: 2000; border-top: 1px solid rgba(255,255,255,0.1); }
         #msg-box { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; width: 85%; text-align: center; }
-        .btn-primary { background: #2563eb; color: white; font-weight: 800; border-radius: 12px; padding: 12px 24px; active: scale(0.95); transition: all 0.2s; }
     </style>
 </head>
 <body>
 
-    <!-- Mensaje de Estado / Errores -->
-    <div id="msg-box" class="glass-panel p-6 rounded-3xl border-2 border-blue-500 shadow-2xl">
-        <div class="flex justify-center mb-4">
-            <div class="w-12 h-12 bg-blue-500/20 rounded-full flex items-center justify-center">
-                <svg class="w-6 h-6 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            </div>
-        </div>
-        <h3 id="msg-title" class="text-blue-400 font-black mb-2 uppercase text-sm">Sincronizando Satélites</h3>
-        <p id="msg-text" class="text-[10px] text-slate-300 mb-6 leading-relaxed">Optimizando precisión para CTM12. Por favor, asegúrese de estar en un lugar abierto.</p>
-        <button onclick="requestGPS()" class="btn-primary text-xs uppercase tracking-widest">Forzar Reintento</button>
+    <div id="msg-box" class="glass-panel p-8 rounded-[2rem] border-2 border-blue-500 shadow-2xl">
+        <h3 id="msg-title" class="text-blue-400 font-900 mb-2 uppercase text-sm tracking-widest">Sincronizando Satélites</h3>
+        <p id="msg-text" class="text-[10px] text-slate-300 mb-6 leading-relaxed">Estableciendo conexión con constelación GNSS para máxima precisión.</p>
+        <button onclick="requestGPS()" class="bg-blue-600 w-full py-4 rounded-xl font-black text-xs uppercase shadow-lg">Reintentar</button>
     </div>
 
     <!-- Header -->
-    <div class="p-4 flex justify-between items-center bg-slate-900 border-b border-slate-800">
+    <div class="p-4 flex justify-between items-center bg-slate-950">
         <div>
-            <h1 class="text-xl font-900 tracking-tighter italic text-white leading-none">TopoPro <span class="text-blue-500">ELITE</span></h1>
-            <p class="text-[8px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Magna-Sirgas / CTM12</p>
+            <h1 class="text-xl font-900 tracking-tighter italic text-white uppercase">TopoPro <span class="text-blue-500">Elite</span></h1>
+            <p class="text-[8px] font-bold text-slate-500 uppercase tracking-widest mt-1">Cálculo Geodésico Profesional</p>
         </div>
-        <div class="flex bg-slate-800 p-1 rounded-xl">
-            <button onclick="setSystem('CTM12')" id="b-ctm" class="px-3 py-2 rounded-lg text-[10px] font-black bg-blue-600 text-white transition-all">CTM12</button>
-            <button onclick="setSystem('BOGOTA')" id="b-bog" class="px-3 py-2 rounded-lg text-[10px] font-black text-slate-500 ml-1 transition-all">MAGNA</button>
+        <div class="flex bg-slate-900 p-1 rounded-xl border border-white/5">
+            <button onclick="setSystem('CTM12')" id="b-ctm" class="px-4 py-2 rounded-lg text-[10px] font-black bg-blue-600 text-white transition-all">CTM12</button>
+            <button onclick="setSystem('MAGNA')" id="b-bog" class="px-4 py-2 rounded-lg text-[10px] font-black text-slate-500 ml-1 transition-all uppercase">Magna</button>
         </div>
     </div>
 
-    <!-- Coordenadas Visuales -->
-    <div class="px-4 grid grid-cols-2 gap-3 my-4">
-        <div class="glass-panel p-4 rounded-2xl coord-box">
-            <p class="text-[9px] font-bold text-blue-400 uppercase mb-1">Norte (N)</p>
-            <p id="t-n" class="text-base font-mono tracking-tighter text-white">---.---</p>
-        </div>
-        <div class="glass-panel p-4 rounded-2xl coord-box">
-            <p class="text-[9px] font-bold text-blue-400 uppercase mb-1">Este (E)</p>
-            <p id="t-e" class="text-base font-mono tracking-tighter text-white">---.---</p>
-        </div>
-        <div class="glass-panel p-4 rounded-2xl col-span-2 flex justify-between items-center border-l-4 border-emerald-500 py-3">
-            <div>
-                <p class="text-[9px] font-bold text-emerald-400 uppercase">Altura (MSNM)</p>
-                <p id="t-h" class="text-xl font-mono text-white">--- m</p>
+    <!-- Panel de Datos Puros (Sin separadores) -->
+    <div class="px-4 grid grid-cols-1 gap-3 my-4">
+        <div class="grid grid-cols-2 gap-3">
+            <div class="glass-panel p-4 rounded-2xl coord-box">
+                <p class="text-[9px] font-bold text-blue-400 uppercase mb-1">Norte (N)</p>
+                <p id="t-n" class="text-[1.2rem] font-mono font-bold text-white tracking-tight">---.---</p>
             </div>
-            <button onclick="copyData()" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-black text-[10px] active:scale-90 transition-all shadow-lg">COPIAR</button>
+            <div class="glass-panel p-4 rounded-2xl coord-box">
+                <p class="text-[9px] font-bold text-blue-400 uppercase mb-1">Este (E)</p>
+                <p id="t-e" class="text-[1.2rem] font-mono font-bold text-white tracking-tight">---.---</p>
+            </div>
+        </div>
+        <div class="glass-panel p-4 rounded-2xl flex justify-between items-center border-l-4 border-emerald-500">
+            <div>
+                <p class="text-[9px] font-bold text-emerald-400 uppercase">Elevación (m)</p>
+                <p id="t-h" class="text-xl font-mono font-bold text-white">---.---</p>
+            </div>
+            <button onclick="copyData()" class="bg-slate-800 text-blue-400 p-3 rounded-xl border border-blue-500/30 active:scale-90 transition-all">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+            </button>
         </div>
     </div>
 
     <!-- Mapa -->
-    <div class="relative border-t border-slate-800">
+    <div class="relative">
         <div id="map"></div>
-        <div class="compass-container">
+        <div class="compass-container" onclick="map.setBearing(0)">
             <div id="needle" class="needle"></div>
         </div>
-        <!-- Botón de centrado manual -->
-        <button onclick="requestGPS()" class="absolute bottom-6 right-6 z-[1000] bg-blue-600 text-white p-4 rounded-full shadow-2xl border-4 border-slate-900 active:scale-95 transition-all">
+        <button onclick="requestGPS()" class="absolute bottom-6 right-6 z-[1000] bg-blue-600 text-white p-5 rounded-full shadow-2xl border-4 border-slate-950 active:scale-95 transition-all">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
         </button>
     </div>
 
-    <!-- Footer Ubicación -->
-    <div class="location-footer glass-panel shadow-[0_-10px_30px_rgba(0,0,0,0.6)]">
-        <div class="flex items-center mb-1">
-            <div id="gps-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse mr-2"></div>
-            <span id="gps-text" class="text-[9px] font-black text-slate-300 uppercase tracking-[0.15em]">Buscando señal...</span>
+    <!-- Consola Inferior -->
+    <div class="location-footer glass-panel">
+        <div class="flex justify-between items-center mb-1">
+            <div class="flex items-center">
+                <div id="gps-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse mr-2"></div>
+                <span id="gps-text" class="text-[10px] font-black text-slate-400 uppercase">Buscando satélites...</span>
+            </div>
+            <span id="t-prec" class="text-[10px] font-mono font-bold text-red-500">± --- m</span>
         </div>
-        <p id="t-sitio" class="text-xs font-bold text-white truncate mb-1">Localizando posición actual...</p>
-        <div class="flex justify-between text-[9px] text-slate-400 font-mono font-bold">
-            <span id="t-prec">Precisión: ---</span>
-            <span id="t-status">Estado: Sincronizando</span>
-        </div>
+        <p id="t-sitio" class="text-[11px] font-medium text-slate-300 truncate">Esperando señal válida para proceso geodésico...</p>
     </div>
 
     <script>
-        const S = {
-            CTM12: { a: 6378137.0, f: 1/298.257222101, lat0: 4.0, lon0: -73.0, N0: 2000000, E0: 5000000, k0: 0.9992 },
-            BOGOTA: { a: 6378137.0, f: 1/298.257222101, lat0: 4.596200417, lon0: -74.077507917, N0: 1000000, E0: 1000000, k0: 1.0 }
+        const PROJ = {
+            CTM12: { a: 6378137.0, f: 1/298.257222101, lat0: 4.0, lon0: -73.0, N0: 2000000.0, E0: 5000000.0, k0: 0.9992 },
+            MAGNA: { a: 6378137.0, f: 1/298.257222101, lat0: 4.596200417, lon0: -74.077507917, N0: 1000000.0, E0: 1000000.0, k0: 1.0 }
         };
 
-        let sys = 'CTM12'; 
+        let sys = 'CTM12';
         let wId = null;
         let lastLat = null, lastLon = null;
-        let isFirstFix = true;
 
-        // Capas de Mapa
-        const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+        function forwardGK(lat, lon) {
+            const p = PROJ[sys];
+            const rad = Math.PI / 180;
+            const phi = lat * rad;
+            const lambda = lon * rad;
+            const phi0 = p.lat0 * rad;
+            const lambda0 = p.lon0 * rad;
+
+            const e2 = 2 * p.f - Math.pow(p.f, 2);
+            const ep2 = e2 / (1 - e2);
+            const n = p.a / Math.sqrt(1 - e2 * Math.pow(Math.sin(phi), 2));
+            const t = Math.pow(Math.tan(phi), 2);
+            const c = ep2 * Math.pow(Math.cos(phi), 2);
+            const a = (lambda - lambda0) * Math.cos(phi);
+
+            const M = p.a * ((1 - e2/4 - 3*e2*e2/64) * phi - (3*e2/8 + 3*e2*e2/32) * Math.sin(2*phi) + (15*e2*e2/256) * Math.sin(4*phi));
+            const M0 = p.a * ((1 - e2/4 - 3*e2*e2/64) * phi0 - (3*e2/8 + 3*e2*e2/32) * Math.sin(2*phi0) + (15*e2*e2/256) * Math.sin(4*phi0));
+
+            const norte = p.N0 + p.k0 * (M - M0 + n * Math.tan(phi) * (a*a/2 + (5 - t + 9*c + 4*c*c) * Math.pow(a, 4)/24));
+            const este = p.E0 + p.k0 * n * (a + (1 - t + c) * Math.pow(a, 3)/6 + (5 - 18*t + t*t + 72*c) * Math.pow(a, 5)/120);
+
+            // Devolver string sin formato de miles y con 3 decimales fijos
+            return { 
+                n: norte.toFixed(3), 
+                e: este.toFixed(3) 
+            };
+        }
+
+        const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
         const labels = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png');
-        const hybrid = L.layerGroup([sat, labels]);
-
+        
         const map = L.map('map', {
             center: [4.57, -74.29],
-            zoom: 15,
+            zoom: 17,
             zoomControl: false,
-            layers: [hybrid],
-            rotate: true
+            layers: [sat, labels],
+            rotate: true,
+            touchRotate: true
         });
 
         let marker = null;
 
         function setSystem(val) {
             sys = val;
-            document.getElementById('b-ctm').className = val === 'CTM12' ? 'px-3 py-2 rounded-lg text-[10px] font-black bg-blue-600 text-white' : 'px-3 py-2 rounded-lg text-[10px] font-black text-slate-500 ml-1';
-            document.getElementById('b-bog').className = val === 'BOGOTA' ? 'px-3 py-2 rounded-lg text-[10px] font-black bg-blue-600 text-white' : 'px-3 py-2 rounded-lg text-[10px] font-black text-slate-500 ml-1';
+            document.getElementById('b-ctm').className = val === 'CTM12' ? 'px-4 py-2 rounded-lg text-[10px] font-black bg-blue-600 text-white' : 'px-4 py-2 rounded-lg text-[10px] font-black text-slate-500 ml-1';
+            document.getElementById('b-bog').className = val === 'MAGNA' ? 'px-4 py-2 rounded-lg text-[10px] font-black bg-blue-600 text-white' : 'px-4 py-2 rounded-lg text-[10px] font-black text-slate-500 ml-1';
             if(lastLat) updateData(lastLat, lastLon);
         }
 
-        function project(la, lo) {
-            const d = S[sys]; const r = Math.PI/180;
-            const p = la*r; const l = lo*r; const p0 = d.lat0*r; const l0 = d.lon0*r;
-            const x = (l - l0) * Math.cos(p); const y = (p - p0);
-            return { n: d.N0 + (y*d.a*d.k0), e: d.E0 + (x*d.a*d.k0) };
+        function updateData(la, lo, acc = 0) {
+            lastLat = la; lastLon = lo;
+            const c = forwardGK(la, lo);
+            
+            // Visualización directa sin formato
+            document.getElementById('t-n').innerText = c.n;
+            document.getElementById('t-e').innerText = c.e;
+            
+            if(acc > 0) {
+                document.getElementById('t-prec').innerText = `± ${acc.toFixed(1)} m`;
+                if(acc < 10) {
+                    document.getElementById('t-prec').className = "text-[10px] font-mono font-bold text-emerald-500";
+                    document.getElementById('gps-dot').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]";
+                    document.getElementById('gps-text').innerText = "GPS: ALTA PRECISIÓN";
+                } else {
+                    document.getElementById('t-prec').className = "text-[10px] font-mono font-bold text-amber-500";
+                    document.getElementById('gps-dot').className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+                    document.getElementById('gps-text').innerText = "GPS: OPTIMIZANDO...";
+                }
+            }
+            
+            if(marker) map.removeLayer(marker);
+            marker = L.circleMarker([la, lo], { radius: 10, color: 'white', weight: 4, fillColor: '#3b82f6', fillOpacity: 1 }).addTo(map);
+            
+            getElevation(la, lo);
+            document.getElementById('msg-box').style.display = "none";
         }
 
         async function getElevation(la, lo) {
             try {
                 const r = await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${la},${lo}`);
                 const d = await r.json();
-                if(d.results[0]) document.getElementById('t-h').innerText = d.results[0].elevation.toFixed(1) + " m";
+                if(d.results[0]) document.getElementById('t-h').innerText = d.results[0].elevation.toFixed(3);
             } catch(e) {}
-        }
-
-        async function getReverseGeocode(la, lo) {
-            try {
-                const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${la}&lon=${lo}&format=json`);
-                const d = await r.json();
-                document.getElementById('t-sitio').innerText = d.display_name.split(',').slice(0,3).join(',');
-            } catch(e) {
-                document.getElementById('t-sitio').innerText = "Sector Rural / Campo";
-            }
-        }
-
-        function updateData(la, lo, acc = 0) {
-            lastLat = la; lastLon = lo;
-            const c = project(la, lo);
-            document.getElementById('t-n').innerText = c.n.toLocaleString('en-US', {minimumFractionDigits: 3, maximumFractionDigits: 3});
-            document.getElementById('t-e').innerText = c.e.toLocaleString('en-US', {minimumFractionDigits: 3, maximumFractionDigits: 3});
-            
-            if(acc > 0) {
-                document.getElementById('t-prec').innerText = `Precisión: ± ${acc.toFixed(1)}m`;
-                // Color de precisión
-                const precColor = acc < 5 ? '#10b981' : (acc < 15 ? '#f59e0b' : '#ef4444');
-                document.getElementById('t-prec').style.color = precColor;
-            }
-            
-            getElevation(la, lo);
-            getReverseGeocode(la, lo);
-
-            if(marker) map.removeLayer(marker);
-            marker = L.circleMarker([la, lo], { radius: 10, color: 'white', weight: 4, fillColor: '#3b82f6', fillOpacity: 1 }).addTo(map);
-            
-            document.getElementById('gps-dot').className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_#10b981]";
-            document.getElementById('gps-text').innerText = "GPS: ACTIVO";
-            document.getElementById('t-status').innerText = "Estado: Conectado";
-            document.getElementById('msg-box').style.display = "none";
         }
 
         function requestGPS() {
             if(wId) navigator.geolocation.clearWatch(wId);
-            
-            // UI inicial
             document.getElementById('msg-box').style.display = "block";
-            document.getElementById('msg-title').innerText = "Sincronizando...";
-            document.getElementById('t-status').innerText = "Estado: Buscando...";
-
-            const options = {
-                enableHighAccuracy: true,
-                timeout: 30000, // 30 segundos de espera máximo
-                maximumAge: 0
-            };
-
+            
             wId = navigator.geolocation.watchPosition(
                 (p) => {
-                    const { latitude, longitude, accuracy } = p.coords;
-                    updateData(latitude, longitude, accuracy);
-                    if(isFirstFix) {
-                        map.flyTo([latitude, longitude], 18);
-                        isFirstFix = false;
-                    }
+                    updateData(p.coords.latitude, p.coords.longitude, p.coords.accuracy);
+                    // Solo volar al marcador en el primer fix o si se aleja mucho
+                    if(!lastLat) map.flyTo([p.coords.latitude, p.coords.longitude], 18);
                 },
                 (err) => {
-                    console.error(err);
-                    if(err.code === 3) { // Timeout
-                        document.getElementById('msg-title').innerText = "Señal Débil";
-                        document.getElementById('msg-text').innerText = "El GPS tarda en responder. Reintentando con parámetros optimizados...";
-                        setTimeout(requestGPS, 2000); // Reintento automático
-                    } else {
-                        document.getElementById('msg-box').style.display = "block";
-                        document.getElementById('msg-title').innerText = "Error GPS";
-                        document.getElementById('msg-text').innerText = err.code === 1 ? "Permiso denegado." : "Verifique que su ubicación esté activa.";
-                    }
+                    document.getElementById('msg-title').innerText = "FALLO DE GPS";
+                    document.getElementById('msg-text').innerText = "Asegúrese de activar la ubicación y estar al aire libre.";
                 },
-                options
+                { enableHighAccuracy: true, timeout: 60000, maximumAge: 0 }
             );
         }
 
@@ -220,31 +206,20 @@
         });
 
         function copyData() {
-            const text = `SISTEMA: ${sys}\nNORTE: ${document.getElementById('t-n').innerText}\nESTE: ${document.getElementById('t-e').innerText}\nALTURA: ${document.getElementById('t-h').innerText}\nSITIO: ${document.getElementById('t-sitio').innerText}`;
+            const text = `PROY: ${sys}\nN: ${document.getElementById('t-n').innerText}\nE: ${document.getElementById('t-e').innerText}\nH: ${document.getElementById('t-h').innerText}`;
             const el = document.createElement('textarea');
             el.value = text; document.body.appendChild(el); el.select();
             document.execCommand('copy'); document.body.removeChild(el);
-            // Mensaje visual de copiado
-            const btn = document.querySelector('button[onclick="copyData()"]');
-            const original = btn.innerText;
-            btn.innerText = "¡COPIADO!";
-            btn.classList.replace('bg-blue-600', 'bg-emerald-600');
-            setTimeout(() => {
-                btn.innerText = original;
-                btn.classList.replace('bg-emerald-600', 'bg-blue-600');
-            }, 2000);
+            alert("📋 Copiado");
         }
 
         window.onload = () => {
-            // Un pequeño delay para asegurar que el hardware esté listo
             setTimeout(requestGPS, 1000);
         };
 
         map.on('click', (e) => {
             updateData(e.latlng.lat, e.latlng.lng);
-            document.getElementById('t-status').innerText = "Estado: Punto Manual";
-            document.getElementById('gps-dot').className = "w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse";
-            document.getElementById('gps-text').innerText = "GPS: PAUSADO (Punto Manual)";
+            document.getElementById('gps-text').innerText = "PUNTO MANUAL";
         });
     </script>
 </body>
