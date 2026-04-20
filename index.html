@@ -3,89 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TopoPro Elite V5.9 Recovery</title>
+    <title>TopoPro V5.9.1 Recovery</title>
+    <!-- Librerías con Fallback -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700&family=Inter:wght@400;600;800&display=swap');
         :root { --accent: #3b82f6; --bg: #020617; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
-        #map { flex-grow: 1; width: 100%; background: #070a13; z-index: 1; }
+        #map { flex-grow: 1; width: 100%; background: #070a13; }
         .glass { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
         
-        #toast {
-            position: fixed; top: 15px; left: 50%; transform: translateX(-50%) translateY(-100px);
-            z-index: 10000; padding: 10px 20px; border-radius: 12px; font-weight: 800; font-size: 11px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5); transition: transform 0.4s ease;
-        }
-        #toast.show { transform: translateX(-50%) translateY(0); }
-
-        #msg-box { 
+        /* Loader de Emergencia */
+        #init-screen {
+            position: fixed; inset: 0; z-index: 99999; background: #020617;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 9999; background: #020617; transition: opacity 0.3s;
+            transition: opacity 0.5s;
         }
-        .msg-content { width: 85%; max-width: 300px; text-align: center; }
-        
-        .loader {
-            width: 48px; height: 48px; border: 5px solid #1e293b; border-bottom-color: #3b82f6;
-            border-radius: 50%; display: inline-block; animation: rotation 1s linear infinite;
+        .loader-ring {
+            width: 50px; height: 50px; border: 4px solid #1e293b; border-top-color: #3b82f6;
+            border-radius: 50%; animation: spin 1s linear infinite;
         }
-        @keyframes rotation { 0% { transform: rotate(0deg) } 100% { transform: rotate(360deg) } }
-        .btn-pulse { animation: pulse-blue 2s infinite; }
-        @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); } 70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #error-diag { display: none; text-align: center; padding: 20px; }
     </style>
 </head>
 <body>
 
-    <div id="toast" class="glass text-emerald-400 border-emerald-500/30 flex items-center gap-2 uppercase tracking-widest">✓ Copiado</div>
-
-    <!-- Pantalla de Inicio y Diagnóstico -->
-    <div id="msg-box">
-        <div class="msg-content">
-            <div id="loader-icon" class="loader mb-6"></div>
-            <h3 class="text-white font-900 text-sm uppercase tracking-[0.2em] mb-2">GPS Topográfico</h3>
-            <p id="msg-text" class="text-[10px] text-slate-500 uppercase tracking-widest leading-relaxed">
-                Iniciando sensores GNSS...<br>Verificando permisos de ubicación.
-            </p>
-            <div id="msg-actions" class="flex flex-col gap-3 mt-8">
-                <button onclick="dismissLoader()" class="text-slate-400 text-[10px] font-black uppercase tracking-widest border border-white/10 px-6 py-3 rounded-full">Ver Panel sin GPS</button>
-                <button onclick="location.reload()" class="hidden id-btn-reload text-blue-500 text-[10px] font-black uppercase tracking-widest border border-blue-500/30 px-6 py-3 rounded-full btn-pulse">Refrescar Aplicación</button>
-            </div>
+    <!-- Pantalla de Diagnóstico Crítico -->
+    <div id="init-screen">
+        <div id="loader-icon" class="loader-ring"></div>
+        <div id="error-diag" class="mt-6">
+            <div class="text-red-500 text-4xl mb-4">⚠</div>
+            <h2 class="text-white font-bold uppercase tracking-widest text-sm">Error de Sincronización</h2>
+            <p id="error-msg" class="text-slate-500 text-[10px] mt-2 uppercase px-10 leading-relaxed">Verificando conexión con servidores de mapas...</p>
+            <button onclick="location.reload()" class="mt-8 border border-blue-500/50 text-blue-400 px-6 py-2 rounded-full text-[10px] font-bold uppercase">Forzar Reintento</button>
         </div>
+        <p id="init-status" class="mt-6 text-[10px] text-slate-500 uppercase tracking-widest font-bold">Iniciando TopoPro Elite...</p>
     </div>
 
-    <!-- Header -->
+    <!-- UI Principal -->
     <div class="p-4 flex justify-between items-center bg-slate-950 border-b border-white/5">
         <div>
             <h1 class="text-lg font-900 tracking-tighter italic uppercase leading-none">TopoPro <span class="text-blue-500">Elite</span></h1>
-            <p class="text-[8px] text-slate-500 uppercase font-bold tracking-widest mt-1">V5.9 Recovery</p>
+            <p class="text-[8px] text-slate-500 uppercase font-bold tracking-widest mt-1">V5.9.1 Recovery Mode</p>
         </div>
         <div class="flex bg-slate-900 p-1 rounded-xl border border-white/5">
-            <button onclick="setSystem('CTM12')" id="b-ctm" class="px-4 py-2 rounded-lg text-[9px] font-black bg-blue-600 transition-all">CTM12</button>
-            <button onclick="setSystem('MAGNA')" id="b-bog" class="px-4 py-2 rounded-lg text-[9px] font-black text-slate-500 ml-1 transition-all">MAGNA</button>
+            <button onclick="setSystem('CTM12')" id="b-ctm" class="px-4 py-2 rounded-lg text-[9px] font-black bg-blue-600">CTM12</button>
+            <button onclick="setSystem('MAGNA')" id="b-bog" class="px-4 py-2 rounded-lg text-[9px] font-black text-slate-500 ml-1">MAGNA</button>
         </div>
     </div>
 
-    <!-- Coordenadas -->
+    <!-- Panel de Coordenadas -->
     <div class="p-4 grid grid-cols-2 gap-3 bg-slate-950">
         <div class="glass p-4 rounded-2xl border-b-2 border-blue-500/50">
             <p class="text-[8px] font-black text-blue-400 uppercase mb-1 opacity-60">Norte (N)</p>
-            <p id="t-n" class="text-[1.35rem] font-mono font-bold tracking-tighter text-white">------,---</p>
+            <p id="t-n" class="text-[1.35rem] font-mono font-bold text-white">------,---</p>
         </div>
         <div class="glass p-4 rounded-2xl border-b-2 border-blue-500/50">
             <p class="text-[8px] font-black text-blue-400 uppercase mb-1 opacity-60 text-right">Este (E)</p>
-            <p id="t-e" class="text-[1.35rem] font-mono font-bold tracking-tighter text-right text-white">------,---</p>
+            <p id="t-e" class="text-[1.35rem] font-mono font-bold text-right text-white">------,---</p>
         </div>
         <div class="glass p-4 rounded-2xl flex justify-between items-center col-span-2 border-b-2 border-emerald-500/50">
             <div>
-                <p class="text-[8px] font-black text-emerald-400 uppercase mb-1 opacity-60">Elevación MSNM</p>
+                <p class="text-[8px] font-black text-emerald-400 uppercase mb-1 opacity-60">Elevación</p>
                 <p id="t-h" class="text-xl font-mono font-bold text-white">---.--- m</p>
             </div>
-            <button onclick="copyData()" class="bg-blue-600 text-white p-3.5 rounded-xl shadow-lg active:scale-95 transition-all">
-                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+            <button onclick="copyData()" class="bg-blue-600 text-white p-3 rounded-xl shadow-lg active:scale-90">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
             </button>
         </div>
     </div>
@@ -93,35 +82,32 @@
     <!-- Mapa -->
     <div id="map"></div>
 
-    <!-- Status Footer -->
-    <div class="glass m-3 p-4 rounded-2xl relative z-50 border border-white/5">
-        <div class="flex justify-between items-start">
-            <div class="flex-1">
+    <!-- Footer Stats -->
+    <div class="glass m-3 p-4 rounded-2xl border border-white/5 absolute bottom-0 left-0 right-0 z-[1000]">
+        <div class="flex justify-between items-center">
+            <div>
                 <div class="flex items-center mb-1">
-                    <div id="gps-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 mr-2 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></div>
-                    <span id="gps-text" class="text-[10px] font-black text-slate-300 uppercase tracking-tighter">Buscando Satélites</span>
+                    <div id="gps-dot" class="w-2.5 h-2.5 rounded-full bg-red-500 mr-2"></div>
+                    <span id="gps-text" class="text-[10px] font-black text-slate-300 uppercase italic">Iniciando GNSS...</span>
                 </div>
-                <p id="t-address" class="text-[11px] text-white font-bold uppercase tracking-tighter leading-tight truncate">Cargando ubicación...</p>
+                <p id="t-prec" class="text-[10px] font-mono font-bold text-red-500">Precisión: ± -- m</p>
             </div>
-            <div class="text-right">
-                <span id="t-prec" class="text-[10px] font-mono font-bold text-red-500 block">± --- m</span>
-            </div>
+            <button onclick="resetGPS()" class="bg-slate-800 p-3 rounded-full border border-white/10 active:rotate-180 transition-transform duration-500">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            </button>
         </div>
     </div>
 
-    <!-- Botón de Reinicio de Sensores -->
-    <button onclick="resetSensors()" class="fixed bottom-32 right-6 z-[1000] bg-slate-900 text-white p-4 rounded-2xl shadow-2xl border border-blue-500/30 active:scale-90 transition-transform">
-        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-    </button>
-
     <script>
+        // Configuración de Proyección
         const PROJ = {
             CTM12: { a: 6378137.0, f: 1/298.257222101, lat0: 4.0, lon0: -73.0, N0: 2000000.0, E0: 5000000.0, k0: 0.9992 },
             MAGNA: { a: 6378137.0, f: 1/298.257222101, lat0: 4.596200417, lon0: -74.077507917, N0: 1000000.0, E0: 1000000.0, k0: 1.0 }
         };
 
-        let sys = 'CTM12', wId = null, lastLat = null, lastLon = null, isFirst = true;
+        let sys = 'CTM12', lastLat = null, lastLon = null, marker = null, map = null;
 
+        // Función Matemática Gauss-Krüger
         function forwardGK(lat, lon) {
             const p = PROJ[sys];
             const rad = Math.PI / 180;
@@ -137,72 +123,105 @@
             return { n: norte.toFixed(3).replace('.',','), e: este.toFixed(3).replace('.',',') };
         }
 
-        const map = L.map('map', { center: [4.57, -74.29], zoom: 16, zoomControl: false });
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
-        let marker = null;
+        // Inicialización Segura
+        window.onload = function() {
+            setTimeout(() => {
+                if (typeof L === 'undefined') {
+                    showError("No se pudo cargar Leaflet. Revisa tu conexión a internet.");
+                    return;
+                }
+                initMap();
+                startGPS();
+            }, 1000);
+        };
 
-        function update(la, lo, acc) {
-            dismissLoader();
-            lastLat = la; lastLon = lo;
-            const coords = forwardGK(la, lo);
-            document.getElementById('t-n').innerText = coords.n;
-            document.getElementById('t-e').innerText = coords.e;
-            document.getElementById('t-prec').innerText = `± ${acc.toFixed(1)} m`;
-
-            const dot = document.getElementById('gps-dot');
-            if (acc < 15) {
-                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]";
-                document.getElementById('gps-text').innerText = "GNSS: ALTA PRECISIÓN";
-                document.getElementById('t-prec').className = "text-[10px] font-mono font-bold text-emerald-400";
-            } else {
-                dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.5)]";
-                document.getElementById('gps-text').innerText = "GNSS: SINCRONIZANDO";
-                document.getElementById('t-prec').className = "text-[10px] font-mono font-bold text-amber-400";
+        function initMap() {
+            try {
+                map = L.map('map', { center: [4.57, -74.29], zoom: 16, zoomControl: false });
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}').addTo(map);
+                document.getElementById('init-screen').style.opacity = '0';
+                setTimeout(() => document.getElementById('init-screen').style.display = 'none', 500);
+            } catch(e) {
+                showError("Error al renderizar el mapa.");
             }
-
-            if (marker) map.removeLayer(marker);
-            marker = L.circleMarker([la, lo], { radius: 8, color: 'white', weight: 3, fillColor: '#3b82f6', fillOpacity: 1 }).addTo(map);
-
-            if (isFirst) {
-                map.flyTo([la, lo], 18);
-                isFirst = false;
-                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${la}&lon=${lo}`)
-                .then(r => r.json()).then(d => {
-                    const muni = d.address.city || d.address.town || d.address.village || d.address.county || "Colombia";
-                    document.getElementById('t-address').innerText = muni;
-                }).catch(() => { document.getElementById('t-address').innerText = "Sector Detectado"; });
-                
-                fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${la},${lo}`)
-                .then(r => r.json()).then(d => { 
-                    if(d.results[0]) document.getElementById('t-h').innerText = d.results[0].elevation.toFixed(3) + " m"; 
-                }).catch(() => {});
-            }
-        }
-
-        function dismissLoader() {
-            const box = document.getElementById('msg-box');
-            box.style.opacity = '0';
-            setTimeout(() => box.style.display = 'none', 300);
-        }
-
-        function resetSensors() {
-            isFirst = true;
-            startGPS();
-            const t = document.getElementById('toast');
-            t.innerText = "REINICIANDO SENSORES...";
-            t.classList.add('show');
-            setTimeout(() => t.classList.remove('show'), 2000);
         }
 
         function startGPS() {
-            if (wId) navigator.geolocation.clearWatch(wId);
-            wId = navigator.geolocation.watchPosition(
-                (p) => update(p.coords.latitude, p.coords.longitude, p.coords.accuracy),
-                (err) => { 
-                    console.error(err);
-                    let msg = "";
-                    switch(err.code) {
-                        case 1: msg = "<span class='text-red-500 font-bold text-xs'>ERROR: PERMISO DENEGADO</span><br>Haz clic en el candado de la barra de direcciones y activa 'Ubicación'."; break;
-                        case 2: msg = "<span class='text-amber-500 font-bold text-xs'>ERROR: SEÑAL NO DISPONIBLE</span><br>El teléfono no puede ver los satélites. Sal de la sombra
+            if (!navigator.geolocation) {
+                showError("Tu dispositivo no soporta GPS.");
+                return;
+            }
+
+            navigator.geolocation.watchPosition(
+                (pos) => {
+                    const { latitude, longitude, accuracy, altitude } = pos.coords;
+                    lastLat = latitude; lastLon = longitude;
+                    
+                    const coords = forwardGK(latitude, longitude);
+                    document.getElementById('t-n').innerText = coords.n;
+                    document.getElementById('t-e').innerText = coords.e;
+                    document.getElementById('t-prec').innerText = `Precisión: ± ${accuracy.toFixed(1)} m`;
+                    if (altitude) document.getElementById('t-h').innerText = altitude.toFixed(3) + " m";
+
+                    // Update UI
+                    const dot = document.getElementById('gps-dot');
+                    const text = document.getElementById('gps-text');
+                    if (accuracy < 15) {
+                        dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]";
+                        text.innerText = "GNSS: ALTA PRECISIÓN";
+                        document.getElementById('t-prec').style.color = "#10b981";
+                    } else {
+                        dot.className = "w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+                        text.innerText = "GNSS: SEÑAL DÉBIL";
+                        document.getElementById('t-prec').style.color = "#f59e0b";
+                    }
+
+                    if (map) {
+                        if (marker) map.removeLayer(marker);
+                        marker = L.circleMarker([latitude, longitude], { radius: 8, color: 'white', weight: 3, fillColor: '#3b82f6', fillOpacity: 1 }).addTo(map);
+                        map.panTo([latitude, longitude]);
+                    }
+                },
+                (err) => {
+                    let m = "Error desconocido del GPS.";
+                    if (err.code === 1) m = "Permiso de ubicación denegado.";
+                    if (err.code === 2) m = "Posición no disponible (sin señal).";
+                    if (err.code === 3) m = "Tiempo de espera agotado.";
+                    document.getElementById('gps-text').innerText = m;
+                    document.getElementById('gps-text').classList.add('text-red-500');
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+        }
+
+        function showError(msg) {
+            document.getElementById('loader-icon').style.display = 'none';
+            document.getElementById('init-status').style.display = 'none';
+            document.getElementById('error-diag').style.display = 'block';
+            document.getElementById('error-msg').innerText = msg;
+        }
+
+        function setSystem(v) {
+            sys = v;
+            document.getElementById('b-ctm').className = v === 'CTM12' ? 'px-4 py-2 rounded-lg text-[9px] font-black bg-blue-600' : 'px-4 py-2 rounded-lg text-[9px] font-black text-slate-500 ml-1';
+            document.getElementById('b-bog').className = v === 'MAGNA' ? 'px-4 py-2 rounded-lg text-[9px] font-black bg-blue-600 text-white' : 'px-4 py-2 rounded-lg text-[9px] font-black text-slate-500 ml-1';
+            if (lastLat) {
+                const c = forwardGK(lastLat, lastLon);
+                document.getElementById('t-n').innerText = c.n;
+                document.getElementById('t-e').innerText = c.e;
+            }
+        }
+
+        function resetGPS() { location.reload(); }
+
+        function copyData() {
+            const txt = `SISTEMA: ${sys}\nN: ${document.getElementById('t-n').innerText}\nE: ${document.getElementById('t-e').innerText}\nH: ${document.getElementById('t-h').innerText}`;
+            const el = document.createElement('textarea'); el.value = txt; document.body.appendChild(el); el.select();
+            document.execCommand('copy'); document.body.removeChild(el);
+            alert("COPIADO AL PORTAPAPELES");
+        }
+    </script>
+</body>
+</html>
 
 ```
